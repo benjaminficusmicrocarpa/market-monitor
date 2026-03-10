@@ -1,0 +1,25 @@
+name: Scan — Evening (8:15 PM ET)
+
+on:
+  schedule:
+    - cron: "15 1 * * 2-6"    # 01:15 UTC next day = 8:15 PM ET (EST). Adjust for EDT.
+  workflow_dispatch:
+
+jobs:
+  evening-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Evening scan
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: python scan.py --mode evening
