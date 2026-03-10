@@ -123,8 +123,8 @@ def render_scan_tab(tab_name: str, source_label: str, selected_date: str):
 
     if not df_day.empty:
         # Summary metrics
-        n_up   = len(df_day[df_day["Direction"] == "UP"])
-        n_down = len(df_day[df_day["Direction"] == "DOWN"])
+        n_up   = len(df_day[df_day["Direction"] == "UP"]) if "Direction" in df_day.columns else 0
+        n_down = len(df_day[df_day["Direction"] == "DOWN"]) if "Direction" in df_day.columns else 0
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Total Movers", len(df_day))
@@ -142,10 +142,11 @@ def render_scan_tab(tab_name: str, source_label: str, selected_date: str):
             horizontal=True,
             key=f"dir_{tab_name}"
         )
-        if direction_filter == "🟢 Up only":
-            df_day = df_day[df_day["Direction"] == "UP"]
-        elif direction_filter == "🔴 Down only":
-            df_day = df_day[df_day["Direction"] == "DOWN"]
+        if "Direction" in df_day.columns:
+            if direction_filter == "🟢 Up only":
+                df_day = df_day[df_day["Direction"] == "UP"]
+            elif direction_filter == "🔴 Down only":
+                df_day = df_day[df_day["Direction"] == "DOWN"]
 
         # Checkbox column for watchlist
         df_display = df_day.copy()
