@@ -1,0 +1,7 @@
+yfinance>=0.2.40
+pandas>=2.0
+gspread>=6.0
+google-auth>=2.0
+streamlit>=1.35
+lxml>=5.0
+html5lib>=1.1
