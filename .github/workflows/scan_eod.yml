@@ -1,0 +1,25 @@
+name: Scan — EOD (4:30 PM ET)
+
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"   # 21:30 UTC = 4:30 PM ET (EST). Adjust to 20:30 during EDT (Mar–Nov)
+  workflow_dispatch:            # manual trigger anytime from GitHub UI
+
+jobs:
+  eod-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run EOD scan
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: python scan.py --mode eod
