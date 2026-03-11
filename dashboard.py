@@ -156,11 +156,47 @@ def render_scan_tab(tab_name: str, source_label: str, selected_date: str):
         display_cols = [c for c in df_display.columns if c != "Date"]
         df_display = df_display[display_cols]
 
+        # Rename columns for display
+        rename_map = {
+            "Close":       "Price",
+            "Change %":    "Day Move %",
+            "Volume":      "Today Vol",
+            "Avg Volume":  "Avg Vol (20D)",
+            "Vol Ratio":   "Vol Ratio (x)",
+            "Catalyst":    "Catalyst / News",
+        }
+        df_display = df_display.rename(columns=rename_map)
+
+        # Color coding for Day Move % and Direction cells
+        def color_move(val):
+            try:
+                v = float(val)
+                if v > 0:
+                    return "color: #00d26a; font-weight: bold"
+                elif v < 0:
+                    return "color: #ff4b4b; font-weight: bold"
+            except Exception:
+                pass
+            return ""
+
+        def color_direction(val):
+            if str(val) == "UP":
+                return "color: #00d26a; font-weight: bold"
+            elif str(val) == "DOWN":
+                return "color: #ff4b4b; font-weight: bold"
+            return ""
+
+        styled = df_display.style
+        if "Day Move %" in df_display.columns:
+            styled = styled.applymap(color_move, subset=["Day Move %"])
+        if "Direction" in df_display.columns:
+            styled = styled.applymap(color_direction, subset=["Direction"])
+
         col_config = {
             "➕": st.column_config.CheckboxColumn("➕", default=False, width="small"),
-            "Change %": st.column_config.NumberColumn("Change %", format="%.2f%%"),
-            "Vol Ratio": st.column_config.NumberColumn("Vol Ratio", format="%.1fx"),
-            "Catalyst": st.column_config.TextColumn("Catalyst", width="large"),
+            "Day Move %": st.column_config.NumberColumn("Day Move %", format="%.2f%%"),
+            "Vol Ratio (x)": st.column_config.NumberColumn("Vol Ratio (x)", format="%.1fx"),
+            "Catalyst / News": st.column_config.TextColumn("Catalyst / News", width="large"),
         }
 
         edited = st.data_editor(
@@ -172,6 +208,9 @@ def render_scan_tab(tab_name: str, source_label: str, selected_date: str):
         )
 
         selected_rows = edited[edited["➕"] == True].drop(columns=["➕"])
+        # Map display names back to original for watchlist storage
+        reverse_map = {v: k for k, v in rename_map.items()}
+        selected_rows = selected_rows.rename(columns=reverse_map)
 
         if st.button(
             f"⭐ Add Selected to Watchlist ({len(selected_rows)})",
