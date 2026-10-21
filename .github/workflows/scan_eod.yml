@@ -2,7 +2,9 @@ name: Scan — EOD (4:30 PM ET)
 
 on:
   schedule:
-    - cron: "30 21 * * 1-5"   # 21:30 UTC = 4:30 PM ET (EST). Adjust to 20:30 during EDT (Mar–Nov)
+    # 20:30 UTC = 4:30 PM US/Eastern during EDT (mid-Mar–early Nov).
+    # Switch to 21:30 UTC when the US is on EST.
+    - cron: "30 20 * * 1-5"
   workflow_dispatch:            # manual trigger anytime from GitHub UI
 
 jobs:

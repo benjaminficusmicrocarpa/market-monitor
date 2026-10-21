@@ -9,10 +9,15 @@ import yfinance as yf
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 import json
 import os
 import time
+
+# Abort if Yahoo's last daily bar is this many calendar days behind US/Eastern "today"
+# (>=3 catches Fri bar still showing on a Mon evening delayed cron).
+STALE_BAR_MAX_DAYS = 3
 
 # ── Config ────────────────────────────────────────────────────────────────────
 EOD_MIN_AVG_VOL     = 3_000_000   # 3M avg daily volume for EOD scan
@@ -150,6 +155,50 @@ def get_company_info(ticker):
         return ticker, "—"
 
 
+
+
+def us_eastern_today():
+    """US/Eastern calendar date on the Actions runner (UTC)."""
+    return datetime.now(ZoneInfo("America/New_York")).date()
+
+
+def last_bar_date(df):
+    """Calendar date of the last daily bar in a yfinance OHLCV frame."""
+    idx = df.index[-1]
+    if hasattr(idx, "date"):
+        return idx.date()
+    return pd.Timestamp(idx).date()
+
+
+def assert_yahoo_bar_fresh(raw, tickers, ny_date):
+    """Fail fast if Yahoo's last bar is too old vs US/Eastern today (avoids mis-dated dumps)."""
+    probe = None
+    for t in ("AAPL", "MSFT", "SPY", tickers[0] if tickers else "AAPL"):
+        try:
+            if len(tickers) == 1:
+                df = raw.dropna(subset=["Close"])
+            else:
+                if t not in raw.columns.get_level_values(0):
+                    continue
+                df = raw[t].dropna(subset=["Close"])
+            if len(df) < 2:
+                continue
+            probe = last_bar_date(df)
+            break
+        except Exception:
+            continue
+    if probe is None:
+        raise SystemExit("Could not read a probe bar date from Yahoo download")
+    lag = (ny_date - probe).days
+    print(f"  Yahoo last bar date: {probe} | US/Eastern today: {ny_date} | lag={lag}d")
+    if lag >= STALE_BAR_MAX_DAYS:
+        raise SystemExit(
+            f"Stale Yahoo last bar {probe} (US/Eastern today {ny_date}, lag {lag}d). "
+            "Refusing to write mis-dated rows — re-run after Yahoo publishes the session."
+        )
+    return probe
+
+
 # ── EOD & Evening Scan ────────────────────────────────────────────────────────
 def run_regular_scan(mode, tickers, run_date, client, spreadsheet_id):
     min_avg_vol = EOD_MIN_AVG_VOL if mode == "eod" else EOD_MIN_AVG_VOL
@@ -166,6 +215,9 @@ def run_regular_scan(mode, tickers, run_date, client, spreadsheet_id):
         progress=False,
     )
 
+    ny_date = us_eastern_today()
+    assert_yahoo_bar_fresh(raw, tickers, ny_date)
+
     rows = []
     for ticker in tickers:
         try:
@@ -180,6 +232,7 @@ def run_regular_scan(mode, tickers, run_date, client, spreadsheet_id):
             if len(df) < 5:
                 continue
 
+            bar_date    = last_bar_date(df)
             avg_vol     = df["Volume"].tail(20).mean()
             close       = float(df["Close"].iloc[-1])
             prev_close  = float(df["Close"].iloc[-2])
@@ -202,7 +255,7 @@ def run_regular_scan(mode, tickers, run_date, client, spreadsheet_id):
             time.sleep(0.05)
 
             rows.append({
-                "Date":       run_date,
+                "Date":       bar_date.strftime("%Y-%m-%d"),
                 "Ticker":     ticker,
                 "Company":    company,
                 "Sector":     sector,
@@ -240,6 +293,9 @@ def run_premarket_scan(tickers, run_date, client, spreadsheet_id):
         prepost=True,
     )
 
+    ny_date = us_eastern_today()
+    assert_yahoo_bar_fresh(raw, tickers, ny_date)
+
     rows = []
     for ticker in tickers:
         try:
@@ -254,6 +310,7 @@ def run_premarket_scan(tickers, run_date, client, spreadsheet_id):
             if len(df) < 2:
                 continue
 
+            bar_date    = last_bar_date(df)
             close       = float(df["Close"].iloc[-1])
             prev_close  = float(df["Close"].iloc[-2])
             vol         = float(df["Volume"].iloc[-1])
@@ -269,7 +326,7 @@ def run_premarket_scan(tickers, run_date, client, spreadsheet_id):
             time.sleep(0.05)
 
             rows.append({
-                "Date":           run_date,
+                "Date":           bar_date.strftime("%Y-%m-%d"),
                 "Ticker":         ticker,
                 "Company":        company,
                 "Sector":         sector,
@@ -297,8 +354,8 @@ def main():
                         help="Which scan to run")
     args = parser.parse_args()
 
-    run_date = date.today().strftime("%Y-%m-%d")
-    print(f"\n=== Market Monitor [{args.mode.upper()}] | {run_date} ===\n")
+    run_date = us_eastern_today().strftime("%Y-%m-%d")
+    print(f"\n=== Market Monitor [{args.mode.upper()}] | {run_date} (US/Eastern) ===\n")
 
     spreadsheet_id = os.environ.get("SPREADSHEET_ID")
     if not spreadsheet_id:
