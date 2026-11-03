@@ -1,12 +1,14 @@
 name: Scan — Pre-Market (8:00 AM ET)
 
 on:
-  schedule:
-    - cron: "0 13 * * 1-5"    # 13:00 UTC = 8:00 AM ET (EST). Adjust for EDT.
+  # PAUSED 2026-11-03 — schedules off; job gated so nothing writes to the Sheet.
+  # schedule:
+  #   - cron: "0 13 * * 1-5"    # 13:00 UTC = 8:00 AM ET (EST). Adjust for EDT.
   workflow_dispatch:
 
 jobs:
   premarket-scan:
+    if: false  # PAUSED — remove this line to resume
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

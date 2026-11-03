@@ -1,14 +1,16 @@
 name: Scan — EOD (4:30 PM ET)
 
 on:
-  schedule:
-    # 20:30 UTC = 4:30 PM US/Eastern during EDT (mid-Mar–early Nov).
-    # Switch to 21:30 UTC when the US is on EST.
-    - cron: "30 20 * * 1-5"
-  workflow_dispatch:            # manual trigger anytime from GitHub UI
+  # PAUSED 2026-11-03 — schedules off; job gated so nothing writes to the Sheet.
+  # schedule:
+  #   # 20:30 UTC = 4:30 PM US/Eastern during EDT (mid-Mar–early Nov).
+  #   # Switch to 21:30 UTC when the US is on EST.
+  #   - cron: "30 20 * * 1-5"
+  workflow_dispatch:            # kept for easy resume after removing if: false
 
 jobs:
   eod-scan:
+    if: false  # PAUSED — remove this line to resume
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
